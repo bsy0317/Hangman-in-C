@@ -24,16 +24,29 @@ int main(int argc, char ** argv){
 	int i=0,word_count=0,word_len=0,loop=1;
 	int fds1[2], fds2[2];
 	FILE* fp;
-	sigset_t set;
-	sigfillset(&set);
-	signal(SIGINT,signalHandler); //Server Shutdown Signal
-	signal(SIGTERM,signalHandler); //Server Shutdown Signal
-	
+	struct sigaction act;
+	act.sa_handler = signalHandler;
+	sigemptyset(&act.sa_mask);
+	act.sa_flags =0;
+	signal(SIGINT, (void *)signalHandler);
+	//sigaction(SIGINT, &act, 0);
+	//sigaction(SIGQUIT, &act, 0);
+
+	if (argc != 2) {
+		//printf("Usage: %s <port> \n", argv[0]);
+		//exit(1);
+		printf("Port number is not set.\nStart automatically with port 5050.\n");
+		argv[1] = (char *)malloc(sizeof(char)*5);
+		strcpy(argv[1],"5050");
+		sleep(2);
+	}
+
 	pipe(fds1);
 	pipe(fds2);
-start:    //The point of return after IPC Communication is terminated.
+start:       //The point of return after IPC is terminated.
+	
 	word_count=word_len=i=0;
-	loop=1; //Initialize loop statement
+	loop=1; //Initialize repeating statement
 	system("clear");
 	printf("Press Ctrl+C to shutdown the server.\n");
 	
@@ -59,7 +72,7 @@ start:    //The point of return after IPC Communication is terminated.
 	printf("==The answer to this question is \"%s\"==\n",word_select);
 	
 	pid = fork();
-	if(pid == 0){
+	if(pid != 0){
 		write(fds1[1], &word_len, sizeof(word_len)); //Sending length over IPC.
 		while(loop){
 			int i=0,j=0;
@@ -90,7 +103,7 @@ start:    //The point of return after IPC Communication is terminated.
 		//printf("Anwser Length = %d\n",word_len);
 		int option = 1;
 		serv_sock = socket(PF_INET, SOCK_STREAM, 0);
-		setsockopt(serv_sock, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option)); //Prevent TCP TIME_WAIT state.
+		setsockopt(serv_sock, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option)); //Prevent TCP from TIME_WAIT state.
 		if(serv_sock == -1) error_handling("socket() error");
 		memset(&serv_addr, 0, sizeof(serv_addr));
 		serv_addr.sin_family = PF_INET;
@@ -124,7 +137,7 @@ start:    //The point of return after IPC Communication is terminated.
 		}
 		//kill(pid,SIGKILL);
 		exit(0);
-		printf("If you see this message, you're not dead(%d).\n",pid);
+		printf("If you see this message, you're not dead.\n");
 	}
 	shutdown(serv_sock, SHUT_RDWR);
 	shutdown(clnt_sock, SHUT_RDWR);
@@ -133,6 +146,7 @@ start:    //The point of return after IPC Communication is terminated.
 	goto start;
 	return 0;
 }
+
 void error_handling(char * message) {
 	fputs(message, stderr);
 	fputc('\n', stderr);
